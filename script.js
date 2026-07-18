@@ -1,19 +1,10 @@
 'use strict';
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Preloader fadeout
-  const preloader = document.getElementById('preloader');
-  if (preloader) {
-    setTimeout(() => {
-      preloader.classList.add('fade-out');
-      setTimeout(() => preloader.remove(), 800);
-    }, 600);
-  }
-
-  // 2. Custom Cursor Trail (Desktop only)
+  // 1. Custom Cursor Trail (Desktop only)
   const isTouch = window.matchMedia('(pointer: coarse)').matches;
-  const cursorGlow = document.getElementById('cursorGlow');
-  const cursorDot = document.getElementById('cursorDot');
+  const cursorGlow = document.getElementById('customCursor');
+  const cursorDot = document.getElementById('customCursorDot');
 
   if (!isTouch && cursorGlow && cursorDot) {
     let mouseX = 0, mouseY = 0;
@@ -26,36 +17,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const render = () => {
-      glowX += (mouseX - glowX) * 0.1;
-      glowY += (mouseY - glowY) * 0.1;
+      glowX += (mouseX - glowX) * 0.12;
+      glowY += (mouseY - glowY) * 0.12;
       cursorGlow.style.transform = `translate(${glowX}px, ${glowY}px) translate(-50%, -50%)`;
       requestAnimationFrame(render);
     };
     render();
 
     // Hover effect
-    const hovers = document.querySelectorAll('a, button, .btn, .product-card, input, textarea, select');
+    const hovers = document.querySelectorAll('a, button, .btn, .product-card, input, select');
     hovers.forEach(el => {
       el.addEventListener('mouseenter', () => {
         cursorGlow.classList.add('hover');
-        cursorDot.classList.add('hover');
       });
       el.addEventListener('mouseleave', () => {
         cursorGlow.classList.remove('hover');
-        cursorDot.classList.remove('hover');
       });
     });
   } else {
     if (cursorGlow) cursorGlow.remove();
     if (cursorDot) cursorDot.remove();
-    const trail = document.getElementById('cursorTrail');
-    if (trail) trail.remove();
   }
 
-  // 3. Burger Menu
+  // 2. Burger Menu
   const burgerBtn = document.getElementById('burgerBtn');
   const mobileMenu = document.getElementById('mobileMenu');
-  const siteHeader = document.getElementById('siteHeader');
 
   if (burgerBtn && mobileMenu) {
     burgerBtn.addEventListener('click', () => {
@@ -74,15 +60,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Header scroll class
+  const siteHeader = document.getElementById('siteHeader');
   window.addEventListener('scroll', () => {
-    if (window.scrollY > 50) {
+    if (window.scrollY > 40) {
       siteHeader?.classList.add('scrolled');
     } else {
       siteHeader?.classList.remove('scrolled');
     }
   }, { passive: true });
 
-  // 4. Smooth Scroll
+  // 3. Smooth Scroll
   document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
       e.preventDefault();
@@ -90,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetId === '#') return;
       const target = document.querySelector(targetId);
       if (target) {
-        const offset = siteHeader ? siteHeader.offsetHeight : 80;
+        const offset = siteHeader ? siteHeader.offsetHeight : 64;
         const targetPosition = target.getBoundingClientRect().top + window.scrollY - offset;
         window.scrollTo({
           top: targetPosition,
@@ -100,11 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // 5. Countup Animation
-  const stats = document.querySelectorAll('.hero-stat-num');
+  // 4. Countup Animation
+  const stats = document.querySelectorAll('.stat-num');
   const animateCount = (el) => {
-    const target = parseInt(el.getAttribute('data-count'), 10) || 0;
-    const duration = 2000;
+    const target = parseInt(el.getAttribute('data-target'), 10) || 0;
+    const duration = 1500;
     const startTime = performance.now();
 
     const update = (now) => {
@@ -132,8 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }, { threshold: 0.5 });
   stats.forEach(s => countObserver.observe(s));
 
-  // 6. Reveal on Scroll
-  const revealElements = document.querySelectorAll('[data-reveal], .product-card, .process-step, .review-card, .about-media');
+  // 5. Reveal on Scroll
+  const revealElements = document.querySelectorAll('[data-reveal]');
   const revealObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
@@ -141,11 +128,11 @@ document.addEventListener('DOMContentLoaded', () => {
         observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+  }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
   revealElements.forEach(el => revealObserver.observe(el));
 
-  // 7. 3D Tilt Effect (Desktop only)
-  const tiltElements = document.querySelectorAll('.product-card, .about-media, .gallery-item');
+  // 6. 3D Tilt Effect (Desktop only)
+  const tiltElements = document.querySelectorAll('.product-card, .heritage-media');
   if (!isTouch) {
     tiltElements.forEach(el => {
       el.addEventListener('mousemove', (e) => {
@@ -154,14 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const y = e.clientY - rect.top;
         const xc = rect.width / 2;
         const yc = rect.height / 2;
-        const rotateX = -(y - yc) / 10;
-        const rotateY = (x - xc) / 10;
-        el.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
+        const rotateX = -(y - yc) / 14; // max tilt 8deg
+        const rotateY = (x - xc) / 14;
+        el.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
       });
 
       el.addEventListener('mouseleave', () => {
         el.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
-        el.style.transition = 'transform 0.5s ease';
+        el.style.transition = 'transform 0.4s ease';
       });
 
       el.addEventListener('mouseenter', () => {
@@ -170,9 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 8. Form Submission (simulate)
-  const forms = document.querySelectorAll('form, .order-form');
-  forms.forEach(form => {
+  // 7. Form Submission (simulate)
+  const form = document.querySelector('.order-form');
+  if (form) {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const btn = form.querySelector('button[type="submit"]');
@@ -181,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.disabled = true;
 
       setTimeout(() => {
-        btn.innerHTML = '<span>Успешно отправлено!</span>';
+        btn.innerHTML = '<span>Заявка успешно отправлена!</span>';
         btn.style.background = '#4CAF50';
         btn.style.borderColor = '#4CAF50';
         form.reset();
@@ -190,8 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.style.background = '';
           btn.style.borderColor = '';
           btn.disabled = false;
-        }, 2000);
+        }, 2500);
       }, 1200);
     });
-  });
+  }
 });
