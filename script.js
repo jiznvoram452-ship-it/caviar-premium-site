@@ -1,349 +1,197 @@
-/* ==========================================================================
-   PREMIUM CAVIAR — script.js
-   Luxury interactive experience
-   ========================================================================== */
+'use strict';
 
-(() => {
-  'use strict';
-
-  /* ------------------------------------------------------------------------
-     Utils
-     ---------------------------------------------------------------------- */
-  const $ = (sel, ctx = document) => ctx.querySelector(sel);
-  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
-  const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
-  const lerp = (start, end, t) => start + (end - start) * t;
-  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
-
-  document.addEventListener('DOMContentLoaded', () => {
-    initBurgerMenu();
-    initSmoothScroll();
-    initActiveNavObserver();
-    initRevealObserver();
-    initTiltEffect();
-    if (!isTouchDevice) initCustomCursor();
-    initCounters();
-    initForms();
-    initHeaderScrollState();
-  });
-
-  /* ------------------------------------------------------------------------
-     1. Burger Menu
-     ---------------------------------------------------------------------- */
-  function initBurgerMenu() {
-    const burger = $('#burger');
-    const nav = $('#nav');
-    if (!burger || !nav) return;
-
-    const body = document.body;
-
-    const openMenu = () => {
-      nav.classList.add('nav--open');
-      burger.classList.add('burger--active');
-      burger.setAttribute('aria-expanded', 'true');
-      body.classList.add('no-scroll');
-    };
-
-    const closeMenu = () => {
-      nav.classList.remove('nav--open');
-      burger.classList.remove('burger--active');
-      burger.setAttribute('aria-expanded', 'false');
-      body.classList.remove('no-scroll');
-    };
-
-    const toggleMenu = () => {
-      nav.classList.contains('nav--open') ? closeMenu() : openMenu();
-    };
-
-    burger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleMenu();
-    });
-
-    // Close on link click
-    $$('a', nav).forEach((link) => {
-      link.addEventListener('click', () => closeMenu());
-    });
-
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-      if (
-        nav.classList.contains('nav--open') &&
-        !nav.contains(e.target) &&
-        !burger.contains(e.target)
-      ) {
-        closeMenu();
-      }
-    });
-
-    // Close on Escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && nav.classList.contains('nav--open')) {
-        closeMenu();
-      }
-    });
-
-    // Close on resize to desktop
-    window.addEventListener('resize', () => {
-      if (window.innerWidth > 900 && nav.classList.contains('nav--open')) {
-        closeMenu();
-      }
-    });
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. Preloader fadeout
+  const preloader = document.getElementById('preloader');
+  if (preloader) {
+    setTimeout(() => {
+      preloader.classList.add('fade-out');
+      setTimeout(() => preloader.remove(), 800);
+    }, 600);
   }
 
-  /* ------------------------------------------------------------------------
-     2. Smooth Scroll
-     ---------------------------------------------------------------------- */
-  function initSmoothScroll() {
-    const header = $('#header');
-    const getHeaderHeight = () => (header ? header.offsetHeight : 0);
+  // 2. Custom Cursor Trail (Desktop only)
+  const isTouch = window.matchMedia('(pointer: coarse)').matches;
+  const cursorGlow = document.getElementById('cursorGlow');
+  const cursorDot = document.getElementById('cursorDot');
 
-    $$('a[href^="#"]').forEach((anchor) => {
-      anchor.addEventListener('click', (e) => {
-        const href = anchor.getAttribute('href');
-        if (!href || href === '#' || href.length < 2) return;
+  if (!isTouch && cursorGlow && cursorDot) {
+    let mouseX = 0, mouseY = 0;
+    let glowX = 0, glowY = 0;
 
-        const target = $(href);
-        if (!target) return;
+    window.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px) translate(-50%, -50%)`;
+    });
 
-        e.preventDefault();
+    const render = () => {
+      glowX += (mouseX - glowX) * 0.1;
+      glowY += (mouseY - glowY) * 0.1;
+      cursorGlow.style.transform = `translate(${glowX}px, ${glowY}px) translate(-50%, -50%)`;
+      requestAnimationFrame(render);
+    };
+    render();
 
-        const offsetTop =
-          target.getBoundingClientRect().top +
-          window.pageYOffset -
-          getHeaderHeight() -
-          8;
+    // Hover effect
+    const hovers = document.querySelectorAll('a, button, .btn, .product-card, input, textarea, select');
+    hovers.forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        cursorGlow.classList.add('hover');
+        cursorDot.classList.add('hover');
+      });
+      el.addEventListener('mouseleave', () => {
+        cursorGlow.classList.remove('hover');
+        cursorDot.classList.remove('hover');
+      });
+    });
+  } else {
+    if (cursorGlow) cursorGlow.remove();
+    if (cursorDot) cursorDot.remove();
+    const trail = document.getElementById('cursorTrail');
+    if (trail) trail.remove();
+  }
 
-        window.scrollTo({
-          top: offsetTop,
-          behavior: 'smooth',
-        });
+  // 3. Burger Menu
+  const burgerBtn = document.getElementById('burgerBtn');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const siteHeader = document.getElementById('siteHeader');
 
-        // Update URL without jumping
-        history.pushState(null, '', href);
+  if (burgerBtn && mobileMenu) {
+    burgerBtn.addEventListener('click', () => {
+      burgerBtn.classList.toggle('active');
+      mobileMenu.classList.toggle('active');
+      document.body.classList.toggle('no-scroll');
+    });
+
+    mobileMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        burgerBtn.classList.remove('active');
+        mobileMenu.classList.remove('active');
+        document.body.classList.remove('no-scroll');
       });
     });
   }
 
-  /* ------------------------------------------------------------------------
-     3. Active Nav Link Highlighting (Intersection Observer)
-     ---------------------------------------------------------------------- */
-  function initActiveNavObserver() {
-    const sections = $$('main section[id]');
-    const navLinks = $$('#nav a[href^="#"]');
-    if (!sections.length || !navLinks.length) return;
+  // Header scroll class
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 50) {
+      siteHeader?.classList.add('scrolled');
+    } else {
+      siteHeader?.classList.remove('scrolled');
+    }
+  }, { passive: true });
 
-    const linkMap = new Map();
-    navLinks.forEach((link) => {
-      const id = link.getAttribute('href').slice(1);
-      linkMap.set(id, link);
+  // 4. Smooth Scroll
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      e.preventDefault();
+      const targetId = this.getAttribute('href');
+      if (targetId === '#') return;
+      const target = document.querySelector(targetId);
+      if (target) {
+        const offset = siteHeader ? siteHeader.offsetHeight : 80;
+        const targetPosition = target.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({
+          top: targetPosition,
+          behavior: 'smooth'
+        });
+      }
     });
+  });
 
-    const header = $('#header');
-    const headerHeight = header ? header.offsetHeight : 0;
+  // 5. Countup Animation
+  const stats = document.querySelectorAll('.hero-stat-num');
+  const animateCount = (el) => {
+    const target = parseInt(el.getAttribute('data-count'), 10) || 0;
+    const duration = 2000;
+    const startTime = performance.now();
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const id = entry.target.id;
-          const link = linkMap.get(id);
-          if (!link) return;
+    const update = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 4); // easeOutQuart
+      el.textContent = Math.floor(ease * target);
 
-          if (entry.isIntersecting) {
-            navLinks.forEach((l) => l.classList.remove('nav__link--active'));
-            link.classList.add('nav__link--active');
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: `-${headerHeight + 40}px 0px -55% 0px`,
-        threshold: 0,
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      } else {
+        el.textContent = target;
       }
-    );
+    };
+    requestAnimationFrame(update);
+  };
 
-    sections.forEach((section) => observer.observe(section));
+  const countObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        animateCount(entry.target);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.5 });
+  stats.forEach(s => countObserver.observe(s));
+
+  // 6. Reveal on Scroll
+  const revealElements = document.querySelectorAll('[data-reveal], .product-card, .process-step, .review-card, .about-media');
+  const revealObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('revealed');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+  revealElements.forEach(el => revealObserver.observe(el));
+
+  // 7. 3D Tilt Effect (Desktop only)
+  const tiltElements = document.querySelectorAll('.product-card, .about-media, .gallery-item');
+  if (!isTouch) {
+    tiltElements.forEach(el => {
+      el.addEventListener('mousemove', (e) => {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const xc = rect.width / 2;
+        const yc = rect.height / 2;
+        const rotateX = -(y - yc) / 10;
+        const rotateY = (x - xc) / 10;
+        el.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.03, 1.03, 1.03)`;
+      });
+
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+        el.style.transition = 'transform 0.5s ease';
+      });
+
+      el.addEventListener('mouseenter', () => {
+        el.style.transition = 'none';
+      });
+    });
   }
 
-  /* ------------------------------------------------------------------------
-     4. Reveal on Scroll
-     ---------------------------------------------------------------------- */
-  function initRevealObserver() {
-    const revealEls = $$('.reveal');
-    if (!revealEls.length) return;
+  // 8. Form Submission (simulate)
+  const forms = document.querySelectorAll('form, .order-form');
+  forms.forEach(form => {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type="submit"]');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span>Отправка...</span>';
+      btn.disabled = true;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const delay = entry.target.dataset.revealDelay || 0;
-            setTimeout(() => {
-              entry.target.classList.add('reveal--visible');
-            }, Number(delay));
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: '0px 0px -10% 0px',
-        threshold: 0.12,
-      }
-    );
-
-    revealEls.forEach((el) => observer.observe(el));
-  }
-
-  /* ------------------------------------------------------------------------
-     5. 3D Tilt Effect for Product Cards
-     ---------------------------------------------------------------------- */
-  function initTiltEffect() {
-    const cards = $$('.product-card');
-    if (!cards.length) return;
-
-    const MAX_TILT = 12;
-    const SCALE_HOVER = 1.03;
-    const PERSPECTIVE = 900;
-
-    cards.forEach((card) => {
-      let rafId = null;
-      let bounds = null;
-
-      const inner = card.querySelector('.product-card__inner') || card;
-      const glare = card.querySelector('.product-card__glare');
-
-      const updateBounds = () => {
-        bounds = card.getBoundingClientRect();
-      };
-
-      const handleMouseEnter = () => {
-        updateBounds();
-        card.classList.add('product-card--active');
-      };
-
-      const handleMouseMove = (e) => {
-        if (!bounds) updateBounds();
-
-        if (rafId) cancelAnimationFrame(rafId);
-
-        rafId = requestAnimationFrame(() => {
-          const x = e.clientX - bounds.left;
-          const y = e.clientY - bounds.top;
-
-          const percentX = x / bounds.width;
-          const percentY = y / bounds.height;
-
-          const rotateY = clamp((percentX - 0.5) * (MAX_TILT * 2), -MAX_TILT, MAX_TILT);
-          const rotateX = clamp((0.5 - percentY) * (MAX_TILT * 2), -MAX_TILT, MAX_TILT);
-
-          inner.style.transform = `
-            perspective(${PERSPECTIVE}px)
-            rotateX(${rotateX}deg)
-            rotateY(${rotateY}deg)
-            scale3d(${SCALE_HOVER}, ${SCALE_HOVER}, ${SCALE_HOVER})
-          `;
-
-          if (glare) {
-            glare.style.background = `radial-gradient(
-              circle at ${percentX * 100}% ${percentY * 100}%,
-              rgba(255,255,255,0.25) 0%,
-              rgba(255,255,255,0) 60%
-            )`;
-            glare.style.opacity = '1';
-          }
-        });
-      };
-
-      const handleMouseLeave = () => {
-        if (rafId) cancelAnimationFrame(rafId);
-        card.classList.remove('product-card--active');
-        inner.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)';
-        inner.style.transform = `
-          perspective(${PERSPECTIVE}px)
-          rotateX(0deg)
-          rotateY(0deg)
-          scale3d(1, 1, 1)
-        `;
-        if (glare) glare.style.opacity = '0';
-
+      setTimeout(() => {
+        btn.innerHTML = '<span>Успешно отправлено!</span>';
+        btn.style.background = '#4CAF50';
+        btn.style.borderColor = '#4CAF50';
+        form.reset();
         setTimeout(() => {
-          inner.style.transition = '';
-        }, 600);
-      };
-
-      card.addEventListener('mouseenter', handleMouseEnter);
-      card.addEventListener('mousemove', handleMouseMove);
-      card.addEventListener('mouseleave', handleMouseLeave);
-      window.addEventListener('resize', updateBounds);
-      window.addEventListener('scroll', () => { bounds = null; }, { passive: true });
+          btn.innerHTML = originalText;
+          btn.style.background = '';
+          btn.style.borderColor = '';
+          btn.disabled = false;
+        }, 2000);
+      }, 1200);
     });
-  }
-
-  /* ------------------------------------------------------------------------
-     6. Custom Cursor with Glow Trail
-     ---------------------------------------------------------------------- */
-  function initCustomCursor() {
-    const cursor = $('.custom-cursor');
-    const dot = $('.custom-cursor__dot');
-    if (!cursor || !dot) return;
-
-    let mouseX = window.innerWidth / 2;
-    let mouseY = window.innerHeight / 2;
-
-    let cursorX = mouseX;
-    let cursorY = mouseY;
-    let dotX = mouseX;
-    let dotY = mouseY;
-
-    const CURSOR_SPEED = 0.14;
-    const DOT_SPEED = 0.35;
-
-    let isVisible = false;
-
-    document.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-
-      if (!isVisible) {
-        isVisible = true;
-        cursor.style.opacity = '1';
-        dot.style.opacity = '1';
-      }
-    });
-
-    document.addEventListener('mouseleave', () => {
-      isVisible = false;
-      cursor.style.opacity = '0';
-      dot.style.opacity = '0';
-    });
-
-    // Interactive hover states
-    const hoverTargets = 'a, button, .product-card, input, textarea, select, [data-cursor-hover]';
-    document.addEventListener('mouseover', (e) => {
-      if (e.target.closest(hoverTargets)) {
-        cursor.classList.add('custom-cursor--hover');
-        dot.classList.add('custom-cursor__dot--hover');
-      }
-    });
-
-    document.addEventListener('mouseout', (e) => {
-      if (e.target.closest(hoverTargets)) {
-        cursor.classList.remove('custom-cursor--hover');
-        dot.classList.remove('custom-cursor__dot--hover');
-      }
-    });
-
-    // Press state
-    document.addEventListener('mousedown', () => {
-      cursor.classList.add('custom-cursor--press');
-    });
-    document.addEventListener('mouseup', () => {
-      cursor.classList.remove('custom-cursor--press');
-    });
-
-    function animateCursor() {
-      cursorX = lerp(cursorX, mouseX, CURSOR_SPEED);
-      cursorY = lerp(cursorY, mouseY, CURSOR_SPEED);
-
-      dotX = lerp(dotX, mouseX, DOT_SPEED);
-      dotY = lerp(dotY, mouseY, D
+  });
+});
