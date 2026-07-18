@@ -1,318 +1,349 @@
 /* ==========================================================================
-   IMPERIAL CAVIAR — Premium Interactions
-   Custom Cursor / Preloader / Scroll Reveal / Counters / Tilt Cards
-   Mobile Menu / Order Form / Modal / Header Scroll
+   PREMIUM CAVIAR — script.js
+   Luxury interactive experience
    ========================================================================== */
 
 (() => {
   'use strict';
 
-  const isTouch = window.matchMedia('(hover: none), (pointer: coarse)').matches;
-  const html = document.documentElement;
-
-  /* ---------------------------------------------------------------------
-     UTILITIES
-  --------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------
+     Utils
+     ---------------------------------------------------------------------- */
+  const $ = (sel, ctx = document) => ctx.querySelector(sel);
+  const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
   const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
   const lerp = (start, end, t) => start + (end - start) * t;
-  const qs = (sel, ctx = document) => ctx.querySelector(sel);
-  const qsa = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
-  /* ---------------------------------------------------------------------
-     PRELOADER
-  --------------------------------------------------------------------- */
-  const initPreloader = () => {
-    const preloader = qs('#preloader');
-    if (!preloader) return;
+  document.addEventListener('DOMContentLoaded', () => {
+    initBurgerMenu();
+    initSmoothScroll();
+    initActiveNavObserver();
+    initRevealObserver();
+    initTiltEffect();
+    if (!isTouchDevice) initCustomCursor();
+    initCounters();
+    initForms();
+    initHeaderScrollState();
+  });
 
-    const hide = () => {
-      preloader.classList.add('is-hidden');
-      html.classList.remove('is-loading');
-      html.classList.add('is-loaded');
-      setTimeout(() => preloader.remove(), 900);
-      window.dispatchEvent(new CustomEvent('app:loaded'));
+  /* ------------------------------------------------------------------------
+     1. Burger Menu
+     ---------------------------------------------------------------------- */
+  function initBurgerMenu() {
+    const burger = $('#burger');
+    const nav = $('#nav');
+    if (!burger || !nav) return;
+
+    const body = document.body;
+
+    const openMenu = () => {
+      nav.classList.add('nav--open');
+      burger.classList.add('burger--active');
+      burger.setAttribute('aria-expanded', 'true');
+      body.classList.add('no-scroll');
     };
 
-    html.classList.add('is-loading');
+    const closeMenu = () => {
+      nav.classList.remove('nav--open');
+      burger.classList.remove('burger--active');
+      burger.setAttribute('aria-expanded', 'false');
+      body.classList.remove('no-scroll');
+    };
 
-    const minTime = new Promise((resolve) => setTimeout(resolve, 1400));
-    const pageLoad = new Promise((resolve) => {
-      if (document.readyState === 'complete') resolve();
-      else window.addEventListener('load', resolve, { once: true });
+    const toggleMenu = () => {
+      nav.classList.contains('nav--open') ? closeMenu() : openMenu();
+    };
+
+    burger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMenu();
     });
 
-    Promise.all([minTime, pageLoad]).then(hide);
+    // Close on link click
+    $$('a', nav).forEach((link) => {
+      link.addEventListener('click', () => closeMenu());
+    });
 
-    // Safety fallback
-    setTimeout(hide, 4500);
-  };
-
-  /* ---------------------------------------------------------------------
-     CUSTOM CURSOR (dot / trail / glow)
-  --------------------------------------------------------------------- */
-  const initCustomCursor = () => {
-    if (isTouch) return;
-
-    const dot = qs('#cursorDot');
-    const glow = qs('#cursorGlow');
-    const trail = qs('#cursorTrail');
-    if (!dot || !glow || !trail) return;
-
-    let mouseX = window.innerWidth / 2;
-    let mouseY = window.innerHeight / 2;
-
-    let dotX = mouseX, dotY = mouseY;
-    let trailX = mouseX, trailY = mouseY;
-    let glowX = mouseX, glowY = mouseY;
-
-    let isVisible = false;
-
-    window.addEventListener('mousemove', (e) => {
-      mouseX = e.clientX;
-      mouseY = e.clientY;
-      if (!isVisible) {
-        isVisible = true;
-        dot.style.opacity = '1';
-        glow.style.opacity = '1';
-        trail.style.opacity = '1';
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (
+        nav.classList.contains('nav--open') &&
+        !nav.contains(e.target) &&
+        !burger.contains(e.target)
+      ) {
+        closeMenu();
       }
-    }, { passive: true });
-
-    document.addEventListener('mouseleave', () => {
-      isVisible = false;
-      dot.style.opacity = '0';
-      glow.style.opacity = '0';
-      trail.style.opacity = '0';
     });
 
-    const raf = () => {
-      // Dot follows fast
-      dotX = lerp(dotX, mouseX, 0.35);
-      dotY = lerp(dotY, mouseY, 0.35);
-
-      // Trail follows medium
-      trailX = lerp(trailX, mouseX, 0.16);
-      trailY = lerp(trailY, mouseY, 0.16);
-
-      // Glow follows slow, wide
-      glowX = lerp(glowX, mouseX, 0.09);
-      glowY = lerp(glowY, mouseY, 0.09);
-
-      dot.style.transform = `translate(${dotX}px, ${dotY}px) translate(-50%, -50%)`;
-      trail.style.transform = `translate(${trailX}px, ${trailY}px) translate(-50%, -50%)`;
-      glow.style.transform = `translate(${glowX}px, ${glowY}px) translate(-50%, -50%)`;
-
-      requestAnimationFrame(raf);
-    };
-    requestAnimationFrame(raf);
-
-    // Hover states on interactive elements
-    const hoverTargets = 'a, button, .tilt-card, input, textarea, select, [data-cursor-hover]';
-
-    const growCursor = () => {
-      dot.style.transform += ' scale(0)';
-      trail.classList.add('cursor-trail--hover');
-      trail.style.width = '64px';
-      trail.style.height = '64px';
-      trail.style.borderColor = 'rgba(212,175,55,0.85)';
-      glow.style.opacity = '0.9';
-    };
-
-    const resetCursor = () => {
-      trail.classList.remove('cursor-trail--hover');
-      trail.style.width = '34px';
-      trail.style.height = '34px';
-      trail.style.borderColor = 'rgba(212, 175, 55, 0.45)';
-    };
-
-    document.addEventListener('mouseover', (e) => {
-      if (e.target.closest(hoverTargets)) growCursor();
-    });
-    document.addEventListener('mouseout', (e) => {
-      if (e.target.closest(hoverTargets)) resetCursor();
-    });
-
-    // Click pulse
-    document.addEventListener('mousedown', () => {
-      dot.style.transform += ' scale(0.6)';
-    });
-    document.addEventListener('mouseup', () => {
-      dot.style.transform = dot.style.transform.replace(' scale(0.6)', '');
-    });
-  };
-
-  /* ---------------------------------------------------------------------
-     HEADER SCROLL STATE
-  --------------------------------------------------------------------- */
-  const initHeaderScroll = () => {
-    const header = qs('#header');
-    if (!header) return;
-
-    let lastScroll = 0;
-
-    const onScroll = () => {
-      const scrollY = window.scrollY || window.pageYOffset;
-      if (scrollY > 60) header.classList.add('scrolled');
-      else header.classList.remove('scrolled');
-      lastScroll = scrollY;
-    };
-
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-  };
-
-  /* ---------------------------------------------------------------------
-     MOBILE MENU / BURGER
-  --------------------------------------------------------------------- */
-  const initMobileMenu = () => {
-    const burger = qs('#burger');
-    const mobileMenu = qs('#mobileMenu');
-    if (!burger || !mobileMenu) return;
-
-    const links = qsa('.mobile-link', mobileMenu);
-
-    const toggleMenu = (forceState) => {
-      const isOpen = typeof forceState === 'boolean'
-        ? forceState
-        : !burger.classList.contains('is-active');
-
-      burger.classList.toggle('is-active', isOpen);
-      mobileMenu.classList.toggle('is-open', isOpen);
-      document.body.classList.toggle('menu-open', isOpen);
-      html.style.overflow = isOpen ? 'hidden' : '';
-    };
-
-    burger.addEventListener('click', () => toggleMenu());
-
-    links.forEach((link) => {
-      link.addEventListener('click', () => toggleMenu(false));
-    });
-
+    // Close on Escape
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') toggleMenu(false);
+      if (e.key === 'Escape' && nav.classList.contains('nav--open')) {
+        closeMenu();
+      }
     });
 
     // Close on resize to desktop
     window.addEventListener('resize', () => {
-      if (window.innerWidth > 900) toggleMenu(false);
+      if (window.innerWidth > 900 && nav.classList.contains('nav--open')) {
+        closeMenu();
+      }
     });
-  };
+  }
 
-  /* ---------------------------------------------------------------------
-     SMOOTH ANCHOR SCROLL (offset for fixed header)
-  --------------------------------------------------------------------- */
-  const initSmoothAnchors = () => {
-    const header = qs('#header');
-    const headerHeight = () => (header ? header.offsetHeight : 0);
+  /* ------------------------------------------------------------------------
+     2. Smooth Scroll
+     ---------------------------------------------------------------------- */
+  function initSmoothScroll() {
+    const header = $('#header');
+    const getHeaderHeight = () => (header ? header.offsetHeight : 0);
 
-    qsa('a[href^="#"]').forEach((anchor) => {
+    $$('a[href^="#"]').forEach((anchor) => {
       anchor.addEventListener('click', (e) => {
-        const targetId = anchor.getAttribute('href');
-        if (!targetId || targetId === '#') return;
-        const target = qs(targetId);
+        const href = anchor.getAttribute('href');
+        if (!href || href === '#' || href.length < 2) return;
+
+        const target = $(href);
         if (!target) return;
 
         e.preventDefault();
-        const top = target.getBoundingClientRect().top + window.scrollY - (headerHeight() + 20);
-        window.scrollTo({ top, behavior: 'smooth' });
+
+        const offsetTop =
+          target.getBoundingClientRect().top +
+          window.pageYOffset -
+          getHeaderHeight() -
+          8;
+
+        window.scrollTo({
+          top: offsetTop,
+          behavior: 'smooth',
+        });
+
+        // Update URL without jumping
+        history.pushState(null, '', href);
       });
     });
-  };
+  }
 
-  /* ---------------------------------------------------------------------
-     SCROLL REVEAL (Intersection Observer)
-  --------------------------------------------------------------------- */
-  const initScrollReveal = () => {
-    const revealEls = qsa('[data-reveal]');
+  /* ------------------------------------------------------------------------
+     3. Active Nav Link Highlighting (Intersection Observer)
+     ---------------------------------------------------------------------- */
+  function initActiveNavObserver() {
+    const sections = $$('main section[id]');
+    const navLinks = $$('#nav a[href^="#"]');
+    if (!sections.length || !navLinks.length) return;
+
+    const linkMap = new Map();
+    navLinks.forEach((link) => {
+      const id = link.getAttribute('href').slice(1);
+      linkMap.set(id, link);
+    });
+
+    const header = $('#header');
+    const headerHeight = header ? header.offsetHeight : 0;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.id;
+          const link = linkMap.get(id);
+          if (!link) return;
+
+          if (entry.isIntersecting) {
+            navLinks.forEach((l) => l.classList.remove('nav__link--active'));
+            link.classList.add('nav__link--active');
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: `-${headerHeight + 40}px 0px -55% 0px`,
+        threshold: 0,
+      }
+    );
+
+    sections.forEach((section) => observer.observe(section));
+  }
+
+  /* ------------------------------------------------------------------------
+     4. Reveal on Scroll
+     ---------------------------------------------------------------------- */
+  function initRevealObserver() {
+    const revealEls = $$('.reveal');
     if (!revealEls.length) return;
 
-    if (!('IntersectionObserver' in window)) {
-      revealEls.forEach((el) => el.classList.add('is-visible'));
-      return;
-    }
-
-    const observer = new IntersectionObserver((entries, obs) => {
-      entries.forEach((entry, index) => {
-        if (entry.isIntersecting) {
-          const el = entry.target;
-          const delay = el.dataset.revealDelay
-            ? parseFloat(el.dataset.revealDelay)
-            : (index % 6) * 90;
-
-          setTimeout(() => el.classList.add('is-visible'), delay);
-          obs.unobserve(el);
-        }
-      });
-    }, {
-      threshold: 0.15,
-      rootMargin: '0px 0px -80px 0px'
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const delay = entry.target.dataset.revealDelay || 0;
+            setTimeout(() => {
+              entry.target.classList.add('reveal--visible');
+            }, Number(delay));
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px -10% 0px',
+        threshold: 0.12,
+      }
+    );
 
     revealEls.forEach((el) => observer.observe(el));
-  };
+  }
 
-  /* ---------------------------------------------------------------------
-     ANIMATED COUNTERS (stats)
-  --------------------------------------------------------------------- */
-  const initCounters = () => {
-    const counters = qsa('[data-count]');
-    if (!counters.length) return;
-
-    const animateCounter = (el) => {
-      const target = parseFloat(el.dataset.count);
-      if (isNaN(target)) return;
-
-      const duration = 1800;
-      const startTime = performance.now();
-      const startVal = 0;
-
-      const easeOutExpo = (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
-
-      const step = (now) => {
-        const elapsed = now - startTime;
-        const progress = clamp(elapsed / duration, 0, 1);
-        const eased = easeOutExpo(progress);
-        const value = Math.floor(lerp(startVal, target, eased));
-        el.textContent = value;
-
-        if (progress < 1) {
-          requestAnimationFrame(step);
-        } else {
-          el.textContent = target;
-        }
-      };
-      requestAnimationFrame(step);
-    };
-
-    if (!('IntersectionObserver' in window)) {
-      counters.forEach(animateCounter);
-      return;
-    }
-
-    const observer = new IntersectionObserver((entries, obs) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          animateCounter(entry.target);
-          obs.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.6 });
-
-    counters.forEach((el) => observer.observe(el));
-  };
-
-  /* ---------------------------------------------------------------------
-     3D TILT EFFECT (product / catalog cards)
-  --------------------------------------------------------------------- */
-  const initTiltCards = () => {
-    if (isTouch) return;
-
-    const cards = qsa('.tilt-card, .product-card, [data-tilt]');
+  /* ------------------------------------------------------------------------
+     5. 3D Tilt Effect for Product Cards
+     ---------------------------------------------------------------------- */
+  function initTiltEffect() {
+    const cards = $$('.product-card');
     if (!cards.length) return;
 
-    const MAX_ROTATE = 12;
-    const PERSPECTIVE = 1000;
+    const MAX_TILT = 12;
     const SCALE_HOVER = 1.03;
+    const PERSPECTIVE = 900;
 
     cards.forEach((card) => {
-      const inner = card.querySelector('[data-tilt-inner]') ||
+      let rafId = null;
+      let bounds = null;
+
+      const inner = card.querySelector('.product-card__inner') || card;
+      const glare = card.querySelector('.product-card__glare');
+
+      const updateBounds = () => {
+        bounds = card.getBoundingClientRect();
+      };
+
+      const handleMouseEnter = () => {
+        updateBounds();
+        card.classList.add('product-card--active');
+      };
+
+      const handleMouseMove = (e) => {
+        if (!bounds) updateBounds();
+
+        if (rafId) cancelAnimationFrame(rafId);
+
+        rafId = requestAnimationFrame(() => {
+          const x = e.clientX - bounds.left;
+          const y = e.clientY - bounds.top;
+
+          const percentX = x / bounds.width;
+          const percentY = y / bounds.height;
+
+          const rotateY = clamp((percentX - 0.5) * (MAX_TILT * 2), -MAX_TILT, MAX_TILT);
+          const rotateX = clamp((0.5 - percentY) * (MAX_TILT * 2), -MAX_TILT, MAX_TILT);
+
+          inner.style.transform = `
+            perspective(${PERSPECTIVE}px)
+            rotateX(${rotateX}deg)
+            rotateY(${rotateY}deg)
+            scale3d(${SCALE_HOVER}, ${SCALE_HOVER}, ${SCALE_HOVER})
+          `;
+
+          if (glare) {
+            glare.style.background = `radial-gradient(
+              circle at ${percentX * 100}% ${percentY * 100}%,
+              rgba(255,255,255,0.25) 0%,
+              rgba(255,255,255,0) 60%
+            )`;
+            glare.style.opacity = '1';
+          }
+        });
+      };
+
+      const handleMouseLeave = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        card.classList.remove('product-card--active');
+        inner.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1)';
+        inner.style.transform = `
+          perspective(${PERSPECTIVE}px)
+          rotateX(0deg)
+          rotateY(0deg)
+          scale3d(1, 1, 1)
+        `;
+        if (glare) glare.style.opacity = '0';
+
+        setTimeout(() => {
+          inner.style.transition = '';
+        }, 600);
+      };
+
+      card.addEventListener('mouseenter', handleMouseEnter);
+      card.addEventListener('mousemove', handleMouseMove);
+      card.addEventListener('mouseleave', handleMouseLeave);
+      window.addEventListener('resize', updateBounds);
+      window.addEventListener('scroll', () => { bounds = null; }, { passive: true });
+    });
+  }
+
+  /* ------------------------------------------------------------------------
+     6. Custom Cursor with Glow Trail
+     ---------------------------------------------------------------------- */
+  function initCustomCursor() {
+    const cursor = $('.custom-cursor');
+    const dot = $('.custom-cursor__dot');
+    if (!cursor || !dot) return;
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+
+    let cursorX = mouseX;
+    let cursorY = mouseY;
+    let dotX = mouseX;
+    let dotY = mouseY;
+
+    const CURSOR_SPEED = 0.14;
+    const DOT_SPEED = 0.35;
+
+    let isVisible = false;
+
+    document.addEventListener('mousemove', (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+
+      if (!isVisible) {
+        isVisible = true;
+        cursor.style.opacity = '1';
+        dot.style.opacity = '1';
+      }
+    });
+
+    document.addEventListener('mouseleave', () => {
+      isVisible = false;
+      cursor.style.opacity = '0';
+      dot.style.opacity = '0';
+    });
+
+    // Interactive hover states
+    const hoverTargets = 'a, button, .product-card, input, textarea, select, [data-cursor-hover]';
+    document.addEventListener('mouseover', (e) => {
+      if (e.target.closest(hoverTargets)) {
+        cursor.classList.add('custom-cursor--hover');
+        dot.classList.add('custom-cursor__dot--hover');
+      }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+      if (e.target.closest(hoverTargets)) {
+        cursor.classList.remove('custom-cursor--hover');
+        dot.classList.remove('custom-cursor__dot--hover');
+      }
+    });
+
+    // Press state
+    document.addEventListener('mousedown', () => {
+      cursor.classList.add('custom-cursor--press');
+    });
+    document.addEventListener('mouseup', () => {
+      cursor.classList.remove('custom-cursor--press');
+    });
+
+    function animateCursor() {
+      cursorX = lerp(cursorX, mouseX, CURSOR_SPEED);
+      cursorY = lerp(cursorY, mouseY, CURSOR_SPEED);
+
+      dotX = lerp(dotX, mouseX, DOT_SPEED);
+      dotY = lerp(dotY, mouseY, D
